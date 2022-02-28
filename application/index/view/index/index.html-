@@ -1,0 +1,99 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="format-detection" content="telephone=no" />
+    <title>沟通中</title>
+    <link rel="stylesheet" type="text/css" href="__STATIC__/newcj/css/themes.css?v=2017129">
+    <link rel="stylesheet" type="text/css" href="__STATIC__/newcj/css/h5app.css">
+    <link rel="stylesheet" type="text/css" href="__STATIC__/newcj/fonts/iconfont.css?v=2016070717">
+    <script src="__STATIC__/newcj/js/jquery.min.js"></script>
+    <script src="__STATIC__/newcj/js/dist/flexible/flexible_css.debug.js"></script>
+    <script src="__STATIC__/newcj/js/dist/flexible/flexible.debug.js"></script>
+</head>
+<body ontouchstart>
+<div class='fui-page-group'>
+<div class='fui-page chatDetail-page'>
+    <div class="chat-header flex">
+        <i class="icon icon-toleft t-48"></i>
+        <span class="shop-titlte t-30">商店</span>
+        <span class="shop-online t-26"></span>
+        <span class="into-shop">进店</span>
+    </div>
+    <div class="fui-content navbar" style="padding:1.2rem 0 1.35rem 0;">
+        <div class="chat-content">
+            <p style="display: none;text-align: center;padding-top: 0.5rem" id="more"><a>加载更多</a></p>
+            <p class="chat-time"><span class="time">2017-11-12</span></p>
+
+            <div class="chat-text section-left flex">
+            <span class="char-img" style="background-image: url(http://chat.com/static/newcj/img/123.jpg)"></span>
+            <span class="text"><i class="icon icon-sanjiao4 t-32"></i>你好</span>
+        </div>
+
+            <div class="chat-text section-right flex">
+            <span class="text"><i class="icon icon-sanjiao3 t-32"></i>你好</span>
+            <span class="char-img" style="background-image: url(http://chat.com/static/newcj/img/132.jpg)"></span>
+           </div>
+
+        </div>
+    </div>
+    <div class="fix-send flex footer-bar">
+        <i class="icon icon-emoji1 t-50"></i>
+        <input class="send-input t-28" id="msg-input" maxlength="200">
+        <i class="icon icon-add t-50" style="color: #888;"></i>
+        <span class="send-btn" id="send-msg">发送</span>
+    </div>
+
+    <input id="from-uid" type="hidden" name="" value="{$fromid}">  
+    <input id="to-uid" type="hidden" name="" value="{$toid}">  
+</div>
+</div>
+
+</body>
+</html>
+
+<script type="text/javascript">
+
+    var fromid = {$fromid};
+    var toid = {$toid};
+
+    var ws = new WebSocket("ws://127.0.0.1:8282");
+
+    ws.onmessage = function (e) {
+        console.log(e);
+        var message = JSON.parse(e.data);
+
+        switch (message.type) {
+            // 绑定id
+            case 'bind':
+                var bindMsg = {
+                    type: 'bind',
+                    bind_id: fromid
+                };
+                ws.send(JSON.stringify(bindMsg));
+                break;
+            // 收到文本消息
+            case 'text':
+                // 需要做的是过滤消息
+                break;
+        }
+    }
+
+    $("#send-msg").on("click", function () {
+        var msg = $("#msg-input").val();
+
+        if (msg == '') {
+            alert("亲，消息内容不能为空！");
+            return false;
+        }
+
+        var message = {
+            type: 'text',
+            fromid: fromid,
+            toid: toid,
+            data: msg
+        };
+
+        ws.send(JSON.stringify(message));
+    });
+</script>

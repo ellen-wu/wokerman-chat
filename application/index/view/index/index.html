@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>客服测试</title>
+    <link rel="stylesheet" type="text/css" href="/static/css/style.css">
+    <script type="text/javascript" src="/static/js/jquery.min.js"></script>
+    <script type="text/javascript" src="/static/js/popimg.js"></script>
+</head>
+<body>
+    <div class="chat-container scroll-default" id="chat-container">
+        <div class="chat-box clearfix">
+            <p class="chat-time"><span>2020-10-10</span></p>
+            <div class="chat-content">
+                <span class="user-avator-box">
+                    <img class="user-avator" src="/static/images/avator1.jpg" />
+                </span>
+                <div class="content-box">
+                    <div class="message message-left">
+                        hello
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-box clearfix">
+            <p class="chat-time"><span>2020-10-10</span></p>
+            <div class="chat-content right">
+                <span class="user-avator-box right">
+                    <img class="user-avator" src="/static/images/avator2.jpg" />
+                </span>
+                <div class="content-box right">
+                    <div class="message-right">
+                        world
+                    </div>
+                </div>
+
+                <div class="clearfix"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="spilit-box"></div>
+    <div class="chat-editor-box">
+        <div contenteditable="true" class="chat-input" id="chat-input"></div>
+        <div class="chat-op"><span class="tip">按Ctrl+Enter键发送</span> <button type="send" class="btn btn-send disabled" id="msg-send">发送</button></div>
+    </div>
+
+    <div id="user-info-row" data-from-uid="{$fromId}" data-to-uid="{$toId}"></div>
+</body>
+</html>
+
+<script type="text/javascript">
+    $("#chat-input").focus();
+
+    var fromId = $("#user-info-row").attr("data-from-uid");
+    var toId = $("#user-info-row").attr("data-to-uid");
+
+    var ws = new WebSocket("ws://127.0.0.1:8282");
+
+    ws.onmessage = function (e) {
+        var message = JSON.parse(e.data);
+        switch (message.type) {
+            // 绑定id
+            case 'bind':
+                var bindMsg = {
+                    type: 'bind',
+                    bind_id: fromId
+                };
+                ws.send(JSON.stringify(bindMsg));
+                break;
+            // 收到文本消息
+            case 'text':
+                // 需要做的是过滤消息
+                getMsg(message);
+                break;
+            case 'ping':
+                console.log("ping: " + message.type);
+                break;
+        }
+    }
+
+    $("#msg-send").on("click", function () {
+        sendMsg();
+    });
+
+    function sendMsg() {
+        var msg = $("#chat-input").html();
+
+        if (msg == '') {
+            alert("亲，消息内容不能为空！");
+            return false;
+        }
+
+        var message = {
+            type: 'text',
+            from_id: fromId,
+            to_id: toId,
+            data: msg
+        };
+
+        var msgId = sendMsgBefore(message);
+
+        if (msgId > 0) {
+            message.msg_id = msgId;
+            ws.send(JSON.stringify(message));
+
+            sendMsgAfter(msg, msgId);
+        }
+    }
+
+    /**
+     * 发送消息前 发起请求，后端保存聊天数据 返回聊天id
+     * @return {[type]} [description]
+     */
+    function sendMsgBefore(msg) {
+        var msgId = 0;
+
+        $.ajaxSetup({
+           async: false
+        });
+        $.post("{:url('Index/saveMsg')}", msg, function (res) {
+            if (res.code == 200) {
+                msgId = res.data.id;
+            }
+        }, 'json');
+
+        return msgId;
+    }
+
+    function sendMsgAfter(msg, msgId) {
+        var msgHtmlId = 'chat-msg-id-' + msgId;
+
+        var chatHtml = '<div class="chat-box clearfix" id="' + msgId + '">\
+                <p class="chat-time"><span>' + '' + '</span></p>\
+                <div class="chat-content right">\
+                    <span class="user-avator-box right">\
+                        <img class="user-avator" src="/static/images/avator2.jpg" />\
+                    </span>\
+                    <div class="content-box right">\
+                        <div class="message-right">\
+                            ' + msg + '\
+                        </div>\
+                    </div>\
+                    <div class="clearfix"></div>\
+                </div>\
+            </div>';
+
+        $("#chat-input").html('');
+        $("#chat-container").append(chatHtml);
+        popImgBind();
+    }
+
+
+    function getMsg(msg) {
+        // 聊天的不是 一对用户
+        if (fromId != msg.to_id || toId != msg.from_id) {
+            return;
+        }
+        var msgExists = $("#chat-container").find("#" + msg.msg_id).length;
+
+        if (msgExists > 0) {
+            return;
+        }
+        var chatHtml = '<div class="chat-box clearfix" id="' + msg.msg_id + '"> \
+                <p class="chat-time"><span>2020-10-10</span></p> \
+                <div class="chat-content"> \
+                    <span class="user-avator-box"> \
+                        <img class="user-avator" src="/static/images/avator1.jpg" /> \
+                    </span> \
+                    <div class="content-box"> \
+                        <div class="message message-left"> \
+                            ' + msg.data + ' \
+                        </div> \
+                    </div> \
+                </div> \
+            </div>';
+
+        $("#chat-container").append(chatHtml);
+        popImgBind();
+    }
+
+    // ping
+    var pingTime = 15000;
+    function ping() {
+        var messagePing = {
+            'from_id': fromId,
+            type: 'ping'
+        };
+
+        ws.send(JSON.stringify(messagePing));
+
+        setTimeout(function () {
+            ping();
+        }, pingTime);
+    }
+
+    setTimeout(function () {
+        ping();
+    }, pingTime);
+
+
+    // 粘贴图片的数量
+    var pasteNumber = 0;
+    // 粘贴 QQ截图
+    document.addEventListener('paste', function (event) {
+        var chatImg = $("#chat-input").find('img');
+        var flag = true;
+        if (typeof(chatImg) != 'undefined') {
+            if (chatImg.length >= 2) {
+                flag = false;
+
+                event.clipboardData = false;
+                event.originalEvent = false;
+                alert("亲，一次最多2张截图");
+                return false;
+            }
+        }
+        // console.log(event);
+        var isChrome = false;
+        if ((event.clipboardData || event.originalEvent)) {
+            //某些chrome版本使用的是event.originalEvent
+            var clipboardData = (event.clipboardData || event.originalEvent.clipboardData);
+            if(clipboardData.items){
+                // for chrome
+                var  items = clipboardData.items,
+                    len = items.length,
+                    blob = null;
+                isChrome = true;
+                for (var i = 0; i < len; i++) {
+                    if (items[i].type.indexOf("image") !== -1) {
+                        //getAsFile() 此方法只是living standard firefox ie11 并不支持
+                        blob = items[i].getAsFile();
+                    }
+                }
+                var chatImg = $("#chat-input").find('img');
+                if (typeof(chatImg) != 'undefined') {
+                    if (chatImg.length >= 2) {
+                        flag = false;
+
+                        event.clipboardData = false;
+                        event.originalEvent = false;
+                        alert("亲，一次最多2张截图");
+                        return false;
+                    }
+                }
+                if(blob!==null){
+                    var blobUrl=URL.createObjectURL(blob);
+                    //blob对象显示
+
+                    // document.getElementById("imgNode").src=blobUrl;
+                    var reader = new FileReader();
+                    //base64码显示
+                    reader.onload = function (event) {
+                        // event.target.result 即为图片的Base64编码字符串
+                        var base64_str = event.target.result;
+
+                        let image = new Image() //新建一个img标签（还没嵌入DOM节点)
+                        image.src = event.target.result
+
+                        var re = this.result;
+                        base64_str = canvasDataURL(base64_str, image);
+                    }
+                    reader.readAsDataURL(blob);
+                }
+            }
+        }
+    });
+
+    function canvasDataURL(path, obj){
+        var img = new Image();
+        img.src = path;
+        img.onload = function(){
+            var that = this;
+            // 默认按比例压缩
+            var w = that.width,
+                h = that.height,
+                scale = w / h;
+            w = obj.width || w;
+            h = obj.height || (w / scale);
+            var quality = 0.7;  // 默认图片质量为0.7
+            //生成canvas
+            var canvas = document.createElement('canvas');
+            var ctx = canvas.getContext('2d');
+            // 创建属性节点
+            var anw = document.createAttribute("width");
+            anw.nodeValue = w;
+            var anh = document.createAttribute("height");
+            anh.nodeValue = h;
+            canvas.setAttributeNode(anw);
+            canvas.setAttributeNode(anh);
+            ctx.drawImage(that, 0, 0, w, h);
+            // 图像质量
+            if(obj.quality && obj.quality <= 1 && obj.quality > 0){
+                quality = obj.quality;
+            }
+
+            var chatImg = $("#chat-input").find('img');
+            if (typeof(chatImg) != 'undefined') {
+                if (chatImg.length >= 2) {
+                    return false;
+                }
+            }
+
+            // quality值越小，所绘制出的图像越模糊
+            var base64 = canvas.toDataURL('image/jpeg', quality);
+            // 回调函数返回base64的值
+            var pasteHtml = $("#chat-input").html() + "<img src='" + base64 + "'" + ' class="img-paste" id="chat_img_' + pasteNumber + '"' + ">";
+
+            pasteNumber = pasteNumber + 1;
+
+            $("#chat-input").html(pasteHtml);
+        }
+    }
+
+    /**
+     * 将以base64的图片url数据转换为Blob
+     * @param urlData
+     *            用url方式表示的base64图片数据
+     */
+    function convertBase64UrlToBlob(urlData){
+        var arr = urlData.split(','), mime = arr[0].match(/:(.*?);/)[1],
+            bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+        while(n--){
+            u8arr[n] = bstr.charCodeAt(n);
+        }
+        return new Blob([u8arr], {type:mime});
+    }
+
+    function popImgBind() {
+        $(".message-left img").popImg();
+        $(".message-right img").popImg();
+
+        var heightNow = 0;
+        $(".chat-box").each(function () {
+            heightNow += parseInt($(this).css("height"));
+        });
+        $("#chat-container").scrollTop(heightNow);
+    }
+
+    // 监听 enter + ctrl
+    window.addEventListener("keydown", function(e) {
+        if (e.ctrlKey && e.keyCode == 13) {
+            sendMsg();
+        }
+    }, false);
+</script>
