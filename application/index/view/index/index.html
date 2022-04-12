@@ -153,7 +153,7 @@
 
     function getMsg(msg) {
         // 聊天的不是 一对用户
-        if (fromId != msg.to_id || toId != msg.from_id) {
+        if ((fromId != msg.to_id || toId != msg.from_id) && (toId != msg.to_id || fromId != msg.from_id)) {
             return;
         }
         var msgExists = $("#chat-container").find("#" + msg.msg_id).length;
@@ -161,7 +161,12 @@
         if (msgExists > 0) {
             return;
         }
-        var chatHtml = '<div class="chat-box clearfix" id="' + msg.msg_id + '"> \
+
+        console.log("========== from ", fromId == msg.from_id)
+        console.log("========== to ", fromId == msg.to_id)
+
+        if (fromId == msg.to_id) {
+            var chatHtml = '<div class="chat-box clearfix" id="' + msg.msg_id + '"> \
                 <p class="chat-time"><span>2020-10-10</span></p> \
                 <div class="chat-content"> \
                     <span class="user-avator-box"> \
@@ -175,8 +180,26 @@
                 </div> \
             </div>';
 
-        $("#chat-container").append(chatHtml);
-        popImgBind();
+            $("#chat-container").append(chatHtml);
+            popImgBind();
+        } else if (fromId == msg.from_id) {
+            var chatHtml = '<div class="chat-box clearfix" id="' + msg.msg_id + '"> \
+                <p class="chat-time"><span>2020-10-10</span></p> \
+                <div class="chat-content right"> \
+                    <span class="user-avator-box right"> \
+                        <img class="user-avator" src="/static/images/avator2.jpg" /> \
+                    </span> \
+                    <div class="content-box right"> \
+                        <div class="message message-right"> \
+                            ' + msg.data + ' \
+                        </div> \
+                    </div> \
+                </div> \
+            </div>';
+
+            $("#chat-container").append(chatHtml);
+            popImgBind();
+        }
     }
 
     // ping

@@ -31,7 +31,7 @@ class Index extends Controller
     {
         // 这里用redis模拟的保存消息
         $redis = new \Redis();
-        $redis->pconnect('127.0.0.1', 6379);
+        $redis->connect('127.0.0.1', 6379);
 
         $cacheId = 'msg:incr:id:for:test';
 
